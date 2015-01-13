@@ -47,7 +47,6 @@ sed在每个脚本执行周期结束会默认打印模式空间中的内容（�
 
 -i[SUFFIX]  
 --in-place[=SUFFIX]  
-
 这个选项是指文件会被改动。GNU sed会创建一个临时文件并把输出指定到临时文件而不是标准输出。
 
 该选项和-s含义相同。
@@ -121,3 +120,68 @@ example文件内容不变，example_link成为文件
 如果命令行中没指定-e、-f、--expression或者--file，那么第一个非可选参数会被认为是待执行的script。
 
 如果任何参数跟在上述几个选项之后，这个参数会被认为是输入文件。如果文件名为‘-’或者空，sed都会处理标准输入。
+
+##3 sed Programs
+
+一段sed程序由一条或多条sed命令组成，这些命令可通过选项-e、-f、--expression或者--file指定，如果没指定上述任何选项，则通过第一个非选项参数指定。本文中，上述选项后面跟着的一条或多条命令称为“脚本”。
+
+脚本中的命令以英文半角冒号(:)或者换行符(ASCII 10)分隔。某些命令由于自身语法原因后面不能跟冒号，需要改成换行符或者把该条命令放在整个脚本的最后。Commands can also be preceded with optional non-significant whitespace characters.
+
+每一条sed命令包含一个可选的地址或地址段，后面是一个字符长度的地址名称及其他该命令指定的代码。
+
+###3.1 How sed Works
+
+sed维护两个数据缓存区：pattern space及辅助用的hold space，初始都为空。
+
+对每行输入都按以下周期执行：首先，从输入流中读取一行，去掉行尾换行符，放入pattern space。然后执行命令；每一条命令都有一个关联地址：一种条件代码，只有当条件校验过命令才会被执行。
+
+当执行完最后一条命令时，pattern space中的内容会被打印到输出流，如果之前去过换行符，此时会重新添加上换行符，如果指定了-n选项，则不会执行打印动作。之后是下一行的执行周期。
+
+除非指定了特殊的命令（例如‘D’），pattern space在两个执行周期间会被清空，hold space则会保留数据。(参见命令‘h’，‘H’，‘x’，‘g’，‘G’)。
+
+###3.2 Selecting lines with sed
+
+sed中的地址可以是以下任意一种形式：
+
+number  
+指定输入中待匹配的行号。（需要注意的是，如果不指定-i或-s选项，sed会跨文件进行行号计数）。
+
+first~step  
+这是一个GNU扩展，匹配从first行开始的每step行。即存在一个非负数n使得行号=first+(n*step)的行被选中。例如：选择奇数行，1~2;选择从第二行开始的每三行，2~3;选择从第10行开始的每五行，10~5；选则第50行，50~0，一种更令人迷惑的写法。
+
+$  
+这个地址匹配最后一个输入文件的最后一行，如果指定了-i或者-s选项，则匹配每个文件的最后一行。
+
+/regexp/  
+选中匹配正则表达式regexp的所有行。如果regexp包含‘/’，则需要利用反斜线（\）进行转义。
+
+空正则表达式‘//’重复上一个正则表达式匹配（指定s命令时效果相同）。 Note that modifiers to regular expressions are evaluated when the regular expression is compiled, thus it is invalid to specify them together with the empty regular expression. 
+
+\%regexp%  
+‘%’可替换为其他任意单个字符。
+
+和上述正则表达式匹配作用相同，只是允许使用除了‘/’外不同的分隔符。在regexp包含大量‘/’时会非常有用， 避免了对每个‘/’繁琐的转义。如果regexp包含自定义的分隔符，也需要通过反斜线（\）转义。
+
+/regexp/I  
+\%regexp%I  
+I修饰符是一个GNU扩展，使得正则匹配区分大小写。
+
+/regexp/M  
+\%regexp%M  
+The M modifier to regular-expression matching is a GNU sed extension which causes ^ and $ to match respectively (in addition to the normal behavior) the empty string after a newline, and the empty string before a newline. 特殊的字符序列（\`和\'）通常用来匹配缓冲区的开始和结束。M含义为多行（multi-line）。
+
+如果没指定address，所有行都会被匹配；如果指定了address，只有符合指定address的行会被匹配。
+
+可以通过以逗号（,）分隔的两个地址指定一个地址段。地址段从第一个地址匹配的行开始匹配，到第二个地址匹配的行结束（包含）。
+
+如果第二个地址是正则表达式，那么会从第一个地址匹配到的下一行开始检测，结果至少会包含两行（除非输入流已结束）。
+
+如果第二个地址是一个数字并且小于等于第一个地址匹配的行号，那么只有一行被匹配到。
+
+GNU sed也支持一些特殊的two-address形式（都是GNU扩展）:
+
+0,/regexp/  
+第一个地址为0，sed就会从第一行就行正则匹配。换句话说，0,/regexp/和1,/regexp/相似，不同点是：0,/regexp/这种形式正则会匹配输入的第一行；而1,/regexp/这种形式正则会从第二行开始匹配。
+
+记住这是地址为0唯一可以使用的地方；没有第0行并且如果在其他地址指定地址为0会报一个错误。
+
