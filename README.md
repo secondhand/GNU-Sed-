@@ -224,3 +224,230 @@ n
 可以用{}包含一组命令。在需要一个地址（或者地址段）触发一组命令时会比较有用。
 
 ---
+
+###3.6 Less Frequently-Used Commands
+
+虽然不常用，但某些情况下非常有用。
+
+y/source-chars/dest-chars/  
+（‘/’可以用其他任意单个字符替换）。
+
+把pattern space中匹配source_chars的字符转换为dest-chars中对应的字符。例如：
+
+	sed  'y/ts/ab/' sed_example
+
+输出：
+	
+	ahib ib a aeba1
+	ahib ib a aeba2
+	ahib ib a aeba3
+
+输入文件中，每一行中的t都被替换成了a，s都被替换成了b。
+
+‘/’（或其他分隔字符）、‘\’或换行可以出现在source-chars或dest-chars中，需要进行转义。source-chars和dest-chars必须包含相同数量的字符（转义后）。
+
+a\  
+text  
+GNU扩展，接受两个地址。
+
+在当前周期结束后或读取下一行输入前，输出命令后的文本（多行时除最后一行外每行以‘\’结束，‘\’不会输出）。，例如：
+
+	sed -n '1,2a\line 1\
+	line 2' sed_example
+
+输出：
+
+	line 1
+	line 2
+	line 1
+	line 2
+
+转义序列在text中生效，如果要打印‘\’，需要写成'\\'。
+
+如果在a和换行符之间除了空字符-\序列以外，还有其他非空字符，那么该行会以a后的第一个非空字符起始，而且是行块的第一行。（简化了一行输入的编辑）这个扩展同样适用于i和c命令。例如：
+
+	sed -n '1,2a        line 1\
+	line 2' sed_example
+
+输出：
+	
+	line 1
+	line 2
+	line 1
+	line 2
+
+输出中，line 1之前的空格都被忽略掉了。
+
+i\  
+text  
+GNU扩展，接受两个地址。
+
+对指定地址或地址段中的每一行输出一次命令后的文本（多行时除最后一行外每行以‘\’结束，‘\’不会输出）。例如：
+
+	sed -n '1,2i\line 1\
+	line 2' sed_example
+
+输出：
+	
+	line 1
+	line 2
+	line 1
+	line 2
+
+执行后会在地址范围内的每一行之前输出i\后的多行文本。
+
+c\  
+text  
+对指定地址或地址段中的所有行输出一次命令后的文本（多行时除最后一行外每行以‘\’结束，‘\’不会输出），如果不指定地址，则每行都会执行一次输出。该命令执行完后会开始一个新的周期，因为pattern space已被清空。例如：
+
+指定地址范围：
+
+	sed -n '1,2c\line 1\
+	line 2' sed_example
+
+输出：
+	
+	line 1
+	line 2
+
+不指定地址范围：
+
+	sed -n 'c\line 1\
+	line2' sed_example
+
+输出：
+
+	line 1
+	line 2
+	line 1
+	line 2
+	line 1
+	line 2
+
+=  
+GNU扩展，接受两个地址。
+
+打印当前输入行行号（后跟一个换行符）。例如执行：
+
+	sed -n '1,2=' sed_example
+
+输出：
+
+	1
+	2
+
+l n  
+
+按如下方式打印pattern space：不可打印字符（包含‘\’）以c风格转义的方式打印；长行会被分隔，分隔符是‘\’；行结束会加一个$标记。
+
+n指定上述长行进行分隔的长度。如果n为0，则长行不会分隔；如果省略，则会使用默认值。n是GNU扩展。例如：
+
+不指定n
+
+	sed -n 'l' sed_example
+
+输出
+	
+	this is a test1$
+	this is a test2$
+	this is a test3$
+
+n为0
+	
+	sed -n 'l 0' sed_example
+
+输出
+	
+	this is a test1$
+	this is a test2$
+	this is a test3$
+
+n为指定长度
+	
+	sed -n 'l 5' sed_example
+
+输出
+
+	this\
+	 is \
+	a te\
+	st1$
+	this\
+	 is \
+	a te\
+	st2$
+	this\
+	 is \
+	a te\
+	st3$
+
+r filename
+
+GNU扩展，可配置两个地址。
+
+在当前周期结束或者下一个输入行读取时，把filename中的内容插入到输出流中。注意如果filename不可读，会被当成空文件，不会报错。
+
+作为一个GNU扩展，文件名支持标准输入/dev/stdin。
+
+例如：sed_example1是一个新文件，内容为
+
+	line 1
+	line 2
+	line 3
+
+执行如下命令：
+
+	sed -n 'r sed_example1' sed_example
+
+输出：
+	
+	line 1
+	line 2
+	line 3
+	line 1
+	line 2
+	line 3
+	line 1
+	line 2
+	line 3
+
+w filename  
+把pattern space中的内容写到filename。作为GNU扩展，支持两个特殊的file-name：/dev/stderr，把结果写到标准错误，/dev/stdout，把结果写到标准输出。
+
+在读取第一行输入前，会创建（或截取）文件。所有的写入命令（包含s命令执行成功后的w标识）都不会关闭或者重新打开该文件。
+
+例如：执行如下命令
+
+	sed -n 'w sed_example2' sed_example
+
+会创建文件sed_example2，文件内容为：
+
+	this is a test1
+	this is a test2
+	this is a test3
+
+D  
+如果pattern space中不包含换行，则开始一个新的周期。否则，删除pattern space中的文本直至第一个换行，并在当前场景下重新开始一个周期，不读取新的输入。
+
+N  
+添加一个新行到pattern space，然后再追加下一行输入，如果没有下一行则sed退出执行。
+
+P  
+打印pattern space中的行。
+
+h  
+把hold space中的内容替换为pattern space中的内容。
+
+H  
+追加一行到hold space，然后把pattern space中的内容追加到hold space。
+
+g  
+把pattern space中的内容替换为hold space中的内容。
+
+G  
+追加一行到pattern space，然后把hold space中的内容追加到pattern space。
+
+x  
+交换pattern space和hold space中的内容。
+
+---
