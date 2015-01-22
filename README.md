@@ -249,7 +249,7 @@ $
 
 前置^表示取反，即匹配任意不在list中的字符。如果list中包含]，需要放到第一个字符的位置（^之后）；如果要包含-，需要放到第一个或最后一个字符的位置；包含^，需要放到第二个的位置。
 
-在list中，$*.[\通常都是普通字符。例如：[\*]匹配“\”或者“*”，\在这就不是特殊字符。但是[.ch.]、[=a=]及[:space:]在list中有特殊含义，分别表示collating symbols, equivalence classes, and character classes。因此当list中[后跟着“.”、“=”或“:”时都有特殊含义。当不是POSIXLY_CORRECT模式时，特殊转义如\n和\t都会被识别。参见Escapes。
+在list中，$\*.[\通常都是普通字符。例如：[\*]匹配“\”或者“*”，\在这就不是特殊字符。但是[.ch.]、[=a=]及[:space:]在list中有特殊含义，分别表示collating symbols, equivalence classes, and character classes。因此当list中[后跟着“.”、“=”或“:”时都有特殊含义。当不是POSIXLY_CORRECT模式时，特殊转义如\n和\t都会被识别。参见Escapes。
 
 regexp1\|regexp2  
 GNU扩展。匹配regexp1或者regexp2。可以使用括号来写一些复杂的正则表达式选项。匹配进程从左到右尝试每一个选项直到某个选项匹配成功。
@@ -356,6 +356,62 @@ n
 
 { commands }  
 可以用{}包含一组命令。在需要一个地址（或者地址段）触发一组命令时会比较有用。
+
+---
+
+###3.5 The s Command
+
+s命令的语法是“s/regexp/replacement/flags”。/字符可以统一替换为其他任意单个字符，如果/（或其他替换字符）出现在regexp或者replacement中，需要转义。
+
+s命令或许是sed中最重要的命令，包含许多选项。基本概念比较简单：尝试用regexp匹配pattern space中的内容；如果匹配成功，那么pattern space中匹配成功的部分会被replacement替换。
+
+replacement可以包含\n（n是1-9中的一个数字）引用，which refer to the portion of the match which is contained between the nth \( and its matching \).replacement也可以包含非转义的&字符，代表pattern space中整个被匹配的部分。最后，作为GNU扩展，replacement可以包含由反斜线和L、l、U、u或E中的一个字符组成的特殊序列。含义如下：
+
+\L  
+把replacement转换为小写直至出现\U或\E，
+
+\l
+把下一个字符转换为小写，
+
+\U  
+把replacement转换为大写直至出现\L或\E，
+
+\u  
+把下一个字符转换为大写，
+
+\E  
+停止\L或\U引起的大小写转换。
+
+如果最终的替换中要包含字符\、&或换行符，需要在这些字符前面加上\。
+
+s命令可以包含以下flags：
+
+g  
+对所有匹配进行替换，不仅仅是第一个。
+
+number  
+只替换第number个匹配。
+
+注意：POSIX标准并没有明确当同时使用g和number修饰符时的结果，当前sed的各种实现对此也没有达成广泛的一致。GNU sed对此的解释是：忽略number之前的所有匹配，然后匹配替换number之后的所有匹配项。
+
+p  
+如果进行了替换，打印新的pattern space。
+
+注意：如果同时指定p和e选项，p和e的先后顺序会对结果产生影响。通常ep（评估然后打印）是你想要的，但是另外一种顺序在debug时非常有用。基于此，当前版本的GNU sed对于p在e之前和之后的不同表现（在评估之前或之后打印pattern space）进行了解释，而通常flags只会产生一次效果。这个行为虽然文档有描述，但未来的版本或许会有改动。
+
+w file-name  
+如果进行了替换，把结果写到指定文件中。作为GNU扩展，支持两个特殊的文件：/dev/stderr，把结果写到标准错误；/dev/stdout，把结果写到标准输出。
+
+e  
+GNU扩展，允许把shell命令通过管道指定到pattern space中。如果进行了替换，pattern space中的命令会被执行并且输出结果会覆盖到pattern space。A trailing newline is suppressed;如果待执行命令包含NUL字符，结果会是不确定的。
+
+I  
+i  
+GNU扩展，以区分大小写方式进行正则匹配。
+
+M  
+m  
+GNU扩展，在这种模式下，^和$分别匹配行的开始和行的结束。有其他特殊的字符序列（\`和\'）匹配buffer的起始和结束。M表示多行。
 
 ---
 
