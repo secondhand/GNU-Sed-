@@ -639,3 +639,91 @@ x
 交换pattern space和hold space中的内容。
 
 ---
+
+###3.8 Commands Specific to GNU sed
+
+以下命令是GNU sed特有的，所以你需要小心使用或者在不考虑可移植性的情况下使用。允许你检测GNU sed的扩展或者做一些需要经常做的但标准sed不支持的任务。
+
+e [command]  
+该命令允许你把shell命令通过管道导进pattern space。没有参数时，e命令执行pattern space中的shell命令并把pattern space中的内容替换为shell命令执行的输出。不支持换行符。
+
+如果指定了一个参数，e命令会把参数当做命令执行并且把输出发送到输出流（和r类似）。该命令支持跨行，除最后一行外每行需要以反斜线结尾。
+
+上述两种情况下，如果待执行命令中包含NUL字符，那么结果是不可预期的。
+
+F  
+打印当前输入文件的文件名（另起一行）。
+
+L n  
+
+---
+
+###3.9 GNU Extensions for Escapes in Regular Expressions
+
+直到本章，我们遇到的转义都是“\^”形式的，sed不会把进行转义的字符当做特殊字符。例如：“\*”匹配单个星号，而不是零个或多个反斜线。
+
+本章将介绍另外一种转义方式——that is, escapes that are applied to a character or sequence of characters that ordinarily are taken literally, and that sed replaces with a special character. 这为不可打印字符编码提供了一种可见的方式。sed对于脚本中使用不可打印字符没有限制，但当用shell或脚本编辑sed脚本时，使用下述的转义序列比使用二进制字符更容易。
+
+转义序列列表如下：
+
+\a  
+产生或匹配一个BEL字符，即报警字符（ASCII 7）。
+
+\f  
+产生或匹配一个换页符（ASCII 12）。
+
+\n  
+产生或匹配一个换行符（ASCII 10）。
+
+\r  
+产生或匹配一个回车（ASCII 13）。
+
+\t  
+产生或匹配一个制表符tab（ASCII 9）。
+
+\v  
+产生或匹配一个竖向制表符（vertical tab，ASCII 11）。
+
+\cx  
+产生或匹配CONTROL-x，x是任意字符。“\cx”的实际效果如下：如果x是一个小写字母，会被转换为大写。然后该字符的第6bit位（二进制40）会取反。因此“\cz”会变为二进制的1A，“\c{”变为二进制3B，“\c:”变为二进制7B。
+
+\dxxx  
+产生或匹配一个十进制ASCII值为xxx的字符。
+
+\oxxx  
+产生或匹配一个八进制ASCII值为xxx的字符。
+
+\xxx  
+产生或匹配一个十六进制ASCII值为xx的字符。
+
+“\b”（退格）会被忽略因为会和匹配“单词边界”的转义序列冲突。
+
+下述转义序列匹配特定的字符类并只适用于正则表达式：
+
+\w  
+匹配任意单词（word）字符，包含字母数字下划线。
+
+\W  
+匹配任意非单词字符。
+
+\b  
+匹配单词边界；也就是匹配左边是一个单词字符并且右边是一个非单词字符的位置，反之亦然。
+
+\B  
+匹配不是单词边界的位置；也就是匹配左边和右边同时为单词字符或者非单词字符的位置。
+
+\`  
+匹配pattern space的开始。在多行模式下和^不同。
+
+\’  
+匹配pattern space的结束。在多行模式下和$不同。
+
+---
+
+##5 GNU sed's Limitations and Non-limitations
+
+对于关注可移植性的用户，需要知道的是一些sed实现把行长度（pattern spaces和hold spaces）限制为不到4000字节。POSIX标准规定sed实现的行长度至少为8192字节。GNU sed内部对于行长度没有限制；只要可以malloc()到内存，可以支持任意长度。
+
+sed用递归来处理子模式及“无限”重复，这意味着可用的堆栈空间会减少缓冲区的大小。
+
+---
