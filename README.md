@@ -642,19 +642,143 @@ x
 
 ###3.8 Commands Specific to GNU sed
 
-以下命令是GNU sed特有的，所以你需要小心使用或者在不考虑可移植性的情况下使用。允许你检测GNU sed的扩展或者做一些需要经常做的但标准sed不支持的任务。
+以下命令是GNU sed特有的，所以要小心使用或者在不考虑可移植性的情况下使用。这些命令允许你检测GNU sed扩展或者做一些需要经常做但标准sed不支持的任务。
 
 e [command]  
-该命令允许你把shell命令通过管道导进pattern space。没有参数时，e命令执行pattern space中的shell命令并把pattern space中的内容替换为shell命令执行的输出。不支持换行符。
+该命令允许你把shell命令通过管道导进pattern space并执行。没有参数时，会把pattern space中的内容当做shell命令执行，并把shell命令执行的输出覆盖回pattern sapce。不支持换行符。例如，把文件sed_example中的内容改为如下：
 
-如果指定了一个参数，e命令会把参数当做命令执行并且把输出发送到输出流（和r类似）。该命令支持跨行，除最后一行外每行需要以反斜线结尾。
+	echo 1
+	echo 2
+	echo 3
+
+执行：
+
+sed "e" sed_example
+
+输出：
+
+	1
+	2
+	3
+
+上述命令没指定-n选项，所以pattern space中的内容被打印出来，从输出可以看出sed_example中的每一行被当成命令执行了，并且结果重写到了pattern space中。
+
+如果指定了一个参数，e命令会把参数当做命令执行并且把输出发送到输出流（和r类似）。该命令支持跨行，除最后一行外每行需要以反斜线结尾。例如，执行：
+
+sed -n "e echo 1" sed_example
+
+输出：
+
+	1
+	1
+	1
 
 上述两种情况下，如果待执行命令中包含NUL字符，那么结果是不可预期的。
 
 F  
-打印当前输入文件的文件名（另起一行）。
+打印输入文件的文件名（另起一行）。
 
 L n  
+GNU扩展，填充以及连接pattern space中的行以产生包含n（最多）个字符的多行输出，和fmt效果类似。如果忽略n，会使用默认值。这个命令是一个失败的尝试，未来版本会被移除。
+
+Q [exit-code]  
+只接受一个地址。
+
+和命令q类似，可以返回退出码，但不会打印pattern space中的内容。
+
+这个命令有一些作用，因为除了它实现“不打印pattern space”这个小特性就只能使用-n选项（这会增加脚本的复杂度）或者借助于下面的片段，读取了整个文件但并没有其他显而易见的效果：
+
+	:eat
+	$d    Quit silently on the last line
+	N     Read another line, silently
+	g     Overwrite pattern space each time to save memory
+	b eat
+
+R filename  
+顺序读取filename中的行并在每个周期结束或者读取下一行输入时插入到输出流。注意：如果filename不可读或者已达到filename文件结尾，不会往输出流中插入新行，并且没有任何错误提示。例如，执行：
+
+	sed "R sed_example" sed_example1
+
+输出：
+
+	sed_example1 line 1
+	sed_example line1
+	sed_example1 line 2
+	sed_example line2
+	sed_example1 line 3
+	sed_example line3
+	sed_example1 line 4
+
+上述命令没有指定-n选项，所以每个周期都会打印pattern space中的内容，在这之后会打印sed_example中的一行，在sed_exmple顺序输出完成后，sed继续执行新的周期，没有输出错误。
+
+和r命令类似，filename也可以是/dev/stdin，从标准输入读取行。例如：
+
+执行：
+
+	sed "R /dev/stdin" sed_example1
+
+输出：
+
+	stdin line 1
+	sed_example1 line 1
+	stdin line 1
+	stdin line 2
+	sed_example1 line 2
+	stdin line 2
+	stdin line 3 
+	sed_example1 line 3
+	stdin line 3
+	stdin line 4
+	sed_example1 line 4
+	stdin line 4
+
+执行后会等待标准输入，输入一行后会先打印pattern space中的内容，然后打印标准输入，接着等待下一次标准输入，循环直至sed所有周期执行结束。
+
+T label  
+如果在读取上一行输入后没有发生替换或者没有执行条件分支跳转，则跳转到label。label可以忽略，在这种情况下会开始执行下一个周期。
+
+v version  
+该命令只是用来检测是否支持GNU sed扩展，如果不支持GNU sed扩展，命令执行失败。进一步，你可以指定你所需要的sed版本，例如4.0.5。默认是4.0，因为从这个版本开始支持这个命令。
+
+该命令会启用所有GNU扩展，即使环境里设置了POSIXLY_CORRECT。
+
+例如在GNU sed 4.2.1版本下，执行：
+
+	sed -n "v" sed_example
+
+没有任何输出，执行：
+
+	echo $?
+
+输出：
+	
+	0
+
+退出码为0，表示命令执行成功。
+
+执行：
+
+	sed -n "v 5.0" sed_example
+
+输出：
+	
+	sed：-e 表达式 #1，字符 5：需要更高版本的sed
+
+执行：
+
+	echo $?
+
+输出：
+	
+	1
+
+退出码为1，表示命令执行失败。
+
+W filename  
+输出pattern space中的内容到filename直至第一个换行。其他和w命令类似。
+
+z  
+该命令会清空pattern space中的内容。通常和“s/.*//”效果相同，但效率更高并且如果输入流中有异常的多字节序列时依然有效，并且POSIX规定上述多字节序列不会被“.”匹配，所以在大部分多字节语言环境下（包含UTF-8），在脚本中间利用正则清空sed缓冲区的兼容性并不好。
 
 ---
 
