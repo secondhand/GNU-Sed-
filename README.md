@@ -844,6 +844,170 @@ z
 
 ---
 
+##4 Some Sample Scripts
+
+下面是一些sed脚本的例子帮助你掌握它。
+
+一些有趣的例子：
+
+*	行居中
+*	数字自增
+*	文件名重命名为小写
+*	打印bash环境
+*	逆置行字符串
+
+模拟标准工具：
+
+*	tac：	 逆置行字符串
+*	cat -n： 行编号
+*	cat -b： 非空行编号
+*	wc -c：  字符计数
+*	wc -w：  单词计数
+*	wc -l：  行计数
+*	head：   打印第一行
+*	tail：   打印最后一行
+*	uniq：   行去重
+*	uniq -d：打印输入中重复的行
+*	uniq -u：删除重复行
+*	cat -s： 合并空行
+
+---
+
+Next: Increment a number, Up: Examples
+
+###4.1 Centering Lines
+
+把一个文件中的所有行居中，并且行宽为80个字符宽度。如果要改变行宽，需要替换“\{...\}”中的数字，添加的空格数也需要改变。
+
+注意：如何利用缓冲区命令分离待匹配正则表达式的部分是一个常用技术。
+
+    #!/usr/bin/sed -f
+     
+    # 把80个空格放入缓冲区
+    1 {
+        x
+        s/^$/          /
+        s/^.*$/&&&&&&&&/
+        x
+    }
+     
+    # 删除头尾空格
+    y/\t/ / #原文档中此处为tab，替换tab字符，实际应该用\t
+    s/^ *//
+    s/ *$//
+
+    # 行尾加上换行及80个空格
+    G
+
+    # 保持前81个字符(80个字符 + 1个换行)
+    s/^\(.\{81\}\).*$/\1/
+
+    # \2 匹配半数空格, 这些空格被移到开头
+    s/^\(.*\)\n\(.*\)\2/\2\1/
+
+---
+
+Next: Rename files to lower case, Previous: Centering lines, Up: Examples
+
+###4.3 Rename Files to Lower Case
+
+这是一个非常奇怪的使用方式。文本转换，并把它转换成shell命令，然后以shell方式执行。别担心，还有更糟糕的hack用法，我曾经看过一个脚本把date命令的输出转换为了bc 程序。
+
+这段程序的主体是sed脚本，把名称从小写映射到大写（反之亦然）并且会检查映射后的名称和之前是否一致。注意：该脚本时如何利用shell脚本和适当的引号进行参数化的。
+
+	#! /bin/sh
+	# rename files to lower/upper case...
+	#
+	# usage:
+	#    move-to-lower *
+	#    move-to-upper *
+	# or
+	#    move-to-lower -R .
+	#    move-to-upper -R .
+	#
+
+	help()
+	{
+	     cat << eof
+	Usage: $0 [-n] [-r] [-h] files...
+
+	-n      do nothing, only see what would be done
+	-R      recursive (use find)
+	-h      this message
+	files   files to remap to lower case
+
+	Examples:
+	    $0 -n *        (see if everything is ok, then...)
+	    $0 *
+
+	    $0 -R .
+
+	eof
+	}
+
+	apply_cmd='sh'
+	finder='echo "$@" | tr " " "\n"'
+	files_only=
+
+	while :
+	do
+	 case "$1" in
+	     -n) apply_cmd='cat' ;;
+	     -R) finder='find "$@" -type f';;
+	     -h) help ; exit 1 ;;
+	     *) break ;;
+	 esac
+	 shift
+	done
+
+	if [ -z "$1" ]; then
+	     echo Usage: $0 [-h] [-n] [-r] files...
+	     exit 1
+	fi
+
+	LOWER='abcdefghijklmnopqrstuvwxyz'
+	UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+	case `basename $0` in
+	     *upper*) TO=$UPPER; FROM=$LOWER ;;
+	     *)       FROM=$UPPER; TO=$LOWER ;;
+	esac
+
+	eval $finder | sed -n '
+
+	# remove all trailing slashes
+	s/\/*$//
+
+	# add ./ if there is no path, only a filename
+	/\//! s/^/.\//
+
+	# save path+filename
+	h
+
+	# remove path
+	s/.*\///
+
+	# do conversion only on filename
+	y/'$FROM'/'$TO'/
+
+	# now line contains original path+file, while
+	# hold space contains the new filename
+	x
+
+	# add converted file name to line, which now contains
+	# path/file-name\nconverted-file-name
+	G
+
+	# check if converted file name is equal to original file name,
+	# if it is, do not print nothing
+	/^.*\/\(.*\)\n\1/b
+
+	# now, transform path/fromfile\n, into
+	# mv path/fromfile path/tofile and print it
+	s/^\(.*\/\)\(.*\)\n\(.*\)$/mv "\1\2" "\1\3"/p
+
+	' | $apply_cmd
+
 ##5 GNU sed's Limitations and Non-limitations
 
 对于关注可移植性的用户，需要知道的是一些sed实现把行长度（pattern spaces和hold spaces）限制为不到4000字节。POSIX标准规定sed实现的行长度至少为8192字节。GNU sed内部对于行长度没有限制；只要可以malloc()到内存，可以支持任意长度。
