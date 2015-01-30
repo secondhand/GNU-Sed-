@@ -1007,6 +1007,97 @@ Next: Rename files to lower case, Previous: Centering lines, Up: Examples
 	s/^\(.*\/\)\(.*\)\n\(.*\)$/mv "\1\2" "\1\3"/p
 
 	' | $apply_cmd
+	
+---
+
+###4.5 Reverse Characters of Lines
+
+该脚本可以进行行倒置。由于可以同时移动两个字符，所以该脚本的效率比其他简单的实现高一些。
+
+注意label定义前的tx命令，通常需要重置t命令检测过的标识。
+
+想象力丰富的读者可以想到该脚本的用法，比如：倒置banner的输出。
+
+	#!/usr/bin/sed -f
+
+    /../! b
+
+    # Reverse a line.  Begin embedding the line between two newlines
+    s/^.*$/\
+    &\
+    /
+
+    # Move first character at the end.  The regexp matches until
+    # there are zero or one characters between the markers
+    tx
+    :x
+    s/\(\n.\)\(.*\)\(.\n\)/\3\2\1/
+    tx
+
+    # Remove the newline markers
+    s/\n//g
+
+---
+Next: cat -n, Previous: Reverse chars of lines, Up: Examples
+
+
+###4.7 Numbering Lines
+
+该脚本可以替换“cat -n”，事实上它的输出格式和GNU cat相同。
+
+但实际上该脚本基本没用，因为已经有C的实现了并且下述的Bourne-shell脚本效果相同但速度更快：
+	
+	#! /bin/sh
+	sed -e "=" $@ | sed -e '
+		s/^/      /
+		N
+		s/^ *\(......\)\n/\1  /
+	'
+
+上述脚本利用sed打印行号，然后使用N命令对行两两分组。但该脚本可学习的东西比下面介绍的少。
+
+该自增算法使用了两个缓存区，所以行号打印完以后不需要完整保存。行号被分隔成两部分，需要改变的数字进入pattern space，另一部分进入hold space；pattern space中的数字通过一步y命令替换实现自增，然后和hold space中的数字合并形成下一行的行号，写回hold space，以便下一次迭代时使用。
+
+	#!/usr/bin/sed -nf
+
+    # Prime the pump on the first line
+    x
+    /^$/ s/^.*$/1/
+
+    # Add the correct line number before the pattern
+    G
+    h
+
+    # Format it and print it
+    s/^/      /
+    s/^ *\(......\)\n/\1  /p
+
+    # Get the line number from hold space; add a zero
+    # if we're going to add a digit on the next line
+    g
+    s/\n.*$//
+    /^9*$/ s/^/0/
+
+    # separate changing/unchanged digits with an x
+    s/.9*$/x&/
+
+    # keep changing digits in hold space
+    h
+    s/^.*x//
+    y/0123456789/1234567890/
+    x
+
+    # keep unchanged digits in pattern space
+    s/x.*$//
+
+    # compose the new number, remove the newline implicitly added by G
+    G
+    s/\n//
+    h
+
+---
+
+Next: wc -c, Previous: cat -n, Up: Examples
 
 ##5 GNU sed's Limitations and Non-limitations
 
