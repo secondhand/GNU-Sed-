@@ -1099,6 +1099,75 @@ Next: cat -n, Previous: Reverse chars of lines, Up: Examples
 
 Next: wc -c, Previous: cat -n, Up: Examples
 
+###4.9 Counting Characters
+
+下述脚本展示了另一种利用sed做算术运算的方法，在这种情况下可能需要做大数加法，如果还通过连续的自增实现的话就不够灵活了（可能会更复杂）。
+
+该方法是把数字映射成字母，就像利用sed实现的算盘。“a”是单位，“b”是单位的十倍，以此类推。我们只需要把当前行的字母数换算成单位数，然后进位成十、百等。
+
+和之前一样，过程中的临时总数保存在hold space中。
+
+最后把算盘形式转换为数字。For the sake of variety, this is done with a loop rather than with some 80 s commands：第一步转换单位，把“a”替换成数字；第二步进行轮转替换，“b”变成“a”，跳转到第一步，重复该流程直至没有字母。
+
+	#!/usr/bin/sed -nf
+
+	# Add n+1 a's to hold space (+1 is for the newline)
+	s/./a/g
+	H
+	x
+	s/\n/a/
+
+	# Do the carry.  The t's and b's are not necessary,
+	# but they do speed up the thing
+	t a
+	: a;  s/aaaaaaaaaa/b/g; t b; b done
+	: b;  s/bbbbbbbbbb/c/g; t c; b done
+	: c;  s/cccccccccc/d/g; t d; b done
+	: d;  s/dddddddddd/e/g; t e; b done
+	: e;  s/eeeeeeeeee/f/g; t f; b done
+	: f;  s/ffffffffff/g/g; t g; b done
+	: g;  s/gggggggggg/h/g; t h; b done
+	: h;  s/hhhhhhhhhh//g
+
+	: done
+	$! {
+	h
+	b
+	}
+
+	# On the last line, convert back to decimal
+
+	: loop
+	/a/! s/[b-h]*/&0/
+	s/aaaaaaaaa/9/
+	s/aaaaaaaa/8/
+	s/aaaaaaa/7/
+	s/aaaaaa/6/
+	s/aaaaa/5/
+	s/aaaa/4/
+	s/aaa/3/
+	s/aa/2/
+	s/a/1/
+
+	: next
+	y/bcdefgh/abcdefg/
+	/[a-h]/ b loop
+	p
+
+---
+
+Next: wc -l, Previous: wc -c, Up: Examples
+
+###4.11 Counting Lines
+
+这次没有令人费解的实现了，因为sed内部提供了“wc -l”功能！
+	#!/usr/bin/sed -nf
+	$=
+
+---
+
+Next: tail, Previous: wc -l, Up: Examples
+
 ##5 GNU sed's Limitations and Non-limitations
 
 对于关注可移植性的用户，需要知道的是一些sed实现把行长度（pattern spaces和hold spaces）限制为不到4000字节。POSIX标准规定sed实现的行长度至少为8192字节。GNU sed内部对于行长度没有限制；只要可以malloc()到内存，可以支持任意长度。
