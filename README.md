@@ -1168,6 +1168,77 @@ Next: wc -l, Previous: wc -c, Up: Examples
 
 Next: tail, Previous: wc -l, Up: Examples
 
+###4.13 Printing the Last Lines
+
+打印最后n行比打印最后一行更复杂，但确实是可实现的。n is encoded in the second line, before the bang character.
+
+这个脚本和tac脚本类似，把最终的输出缓存到hold space并在最后打印：
+
+	#!/usr/bin/sed -nf
+     
+	1! {; H; g; }
+	1,10 !s/[^\n]*\n//
+	$p
+	h
+
+维持一个10行的的窗口，通过添加一行及删除最旧的行来滑动它（第二行的替换命令和D命令类似但不重启循环）。
+
+在写高效且复杂的sed脚本时，“滑动窗口”是一种非常强大的技术，如果要手工实现P命令会需要大量的工作。
+
+为了介绍这种在本章剩余部分被充分证明的技术（基于N，P，D命令），下面是一个利用简单“滑动窗口”实现的tail。
+
+看起来复杂但实际上和上一个脚本效果相同：在输入适当的行数后，不再需要用hold space缓存状态，而是用N和D来实现pattern space滑动:
+
+	#!/usr/bin/sed -f
+	     
+	1h
+	2,10 {; H; g; }
+	$q
+	1,9d
+	N
+	D
+
+注意输入在超过十行后的第一、二及四行是怎么失效的，在那之后，脚本按如下执行：在最后一行输入时退出，把下一行追加到pattern space，删除第一行。
+
+---
+
+Next:uniq -d, Previous: tail, Up: Examples
+
+
+###4.15 Print Duplicated Lines of Input
+
+该脚本只打印重复行，和“uniq -d”类似。
+
+	#!/usr/bin/sed -nf
+
+	$b
+	N
+	/^\(.*\)\n\1$/ {
+		# 打印两个重复行中第一行
+		s/.*\n//
+		p
+
+		# 循环直至读取到一个非重复行
+		:b
+		$b
+		N
+		/^\(.*\)\n\1$/ {
+			s/.*\n//
+			bb
+		}
+	}
+
+	# 最后一行后面不可能有重复行
+	$b
+
+	# 找到一个非重复行，单独留在pattern space中
+	# 开始下一个循环, 寻找和它重复的行
+	D
+
+---
+
+Next: cat -s, Previous: uniq -d, Up: Examples
+
 ##5 GNU sed's Limitations and Non-limitations
 
 对于关注可移植性的用户，需要知道的是一些sed实现把行长度（pattern spaces和hold spaces）限制为不到4000字节。POSIX标准规定sed实现的行长度至少为8192字节。GNU sed内部对于行长度没有限制；只要可以malloc()到内存，可以支持任意长度。
