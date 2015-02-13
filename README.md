@@ -909,6 +909,48 @@ Next: Increment a number, Up: Examples
 
 Next: Rename files to lower case, Previous: Centering lines, Up: Examples
 
+###4.2 Increment a Number
+
+这个脚本是几个演示如何用sed做算术运算的脚本之一，确实是可行的，但必须手工完成。
+
+实现一个数的自增只需要把最后一位数字加1，即把它替换为下一个数字。有一个特例：如果这个数字是9，它前面的数字必须也加1直到没有9。
+
+由Bruno Haible提出的解决方法非常聪明、智能，因为只使用了一个缓冲区，如果没有这个限制，Numbering lines中的算法会更快。工作原理：用下划线替换末尾的所有9，然后利用多个s命令让最后一位数字加1，然后把所有下划线替换为0。
+
+	#!/usr/bin/sed -f
+     
+	/[^0-9]/ d
+
+	# replace all leading 9s by _ (any other character except digits, could
+	# be used)
+	:d
+	s/9\(_*\)$/_\1/
+	td
+
+	# incr last digit only.  The first line adds a most-significant
+	# digit of 1 if we have to add a digit.
+	#
+	# The tn commands are not necessary, but make the thing
+	# faster
+
+	s/^\(_*\)$/1\1/; tn
+	s/8\(_*\)$/9\1/; tn
+	s/7\(_*\)$/8\1/; tn
+	s/6\(_*\)$/7\1/; tn
+	s/5\(_*\)$/6\1/; tn
+	s/4\(_*\)$/5\1/; tn
+	s/3\(_*\)$/4\1/; tn
+	s/2\(_*\)$/3\1/; tn
+	s/1\(_*\)$/2\1/; tn
+	s/0\(_*\)$/1\1/; tn
+
+	:n
+	y/_/0/
+
+---
+
+Next: Print bash environment, Previous: Increment a number, Up: Examples
+
 ###4.3 Rename Files to Lower Case
 
 这是一个非常奇怪的使用方式。文本转换，并把它转换成shell命令，然后以shell方式执行。别担心，还有更糟糕的hack用法，我曾经看过一个脚本把date命令的输出转换为了bc 程序。
@@ -1010,6 +1052,38 @@ Next: Rename files to lower case, Previous: Centering lines, Up: Examples
 	
 ---
 
+###4.4 Print bash Environment
+
+这个脚本会从Bourne-shell命令set的输出中去掉shell函数的定义。
+
+	#!/bin/sh
+
+	set | sed -n '
+	:x
+
+	# if no occurrence of ‘=()’ print and load next line
+	/=()/! { p; b; }
+	/ () $/! { p; b; }
+
+	# possible start of functions section
+	# save the line in case this is a var like FOO="() "
+	h
+
+	# if the next line has a brace, we quit because
+	# nothing comes after functions
+	n
+	/^{/ q
+
+	# print the old line
+	x; p
+
+	# work on the new line now
+	x; bx
+	'
+---
+
+Next: tac, Previous: Print bash environment, Up: Examples
+
 ###4.5 Reverse Characters of Lines
 
 该脚本可以进行行倒置。由于可以同时移动两个字符，所以该脚本的效率比其他简单的实现高一些。
@@ -1040,6 +1114,29 @@ Next: Rename files to lower case, Previous: Centering lines, Up: Examples
 ---
 Next: cat -n, Previous: Reverse chars of lines, Up: Examples
 
+###4.6 Reverse Lines of Files
+
+从这个脚本开始后续都是一些没有实际用处（但有意思）的脚本模拟各种Unix命令。这个脚本模拟的是tac命令。
+
+需要注意的是在其他非GNU sed实现中执行该脚本，内部缓存比较容易溢出。
+
+	#!/usr/bin/sed -nf
+
+	# reverse all lines of input, i.e. first line became last, ...
+
+	# from the second line, the buffer (which contains all previous lines)
+	# is *appended* to current line, so, the order will be reversed
+	1! G
+
+	# on the last line we're done -- print everything
+	$ p
+
+	# store everything on the buffer again
+	h
+
+---
+
+Next: cat -b, Previous: tac, Up: Examples
 
 ###4.7 Numbering Lines
 
@@ -1238,6 +1335,83 @@ Next:uniq -d, Previous: tail, Up: Examples
 ---
 
 Next: cat -s, Previous: uniq -d, Up: Examples
+
+###4.17 Squeezing Blank Lines
+
+作为最后一个示例，下面有三个脚本都实现了相同的功能“cat -s”：多行空行合并为一行输出，但复杂度和执行速度递增。
+
+如果首尾已经存在空行，第一个脚本会在首尾保留一个空行。
+
+	#!/usr/bin/sed -f
+
+	# 把所有空行连接到一起
+	# 注意正则表示式中有一个“*”
+	:x
+	/^\n*$/ {
+	N
+	bx
+	}
+
+	# 挤压所有'\n', 也可以使用下面的正则表达式:
+	# s/^\(\n\)*/\1/
+
+	s/\n*/\
+	/
+	#注：该正则有误，应该为
+	#s/\n+/\
+	#/
+
+这个脚本更复杂一些，会删除开头的所有空行，但结尾的空行会保留一个。
+
+	#!/usr/bin/sed -f
+
+	# 删除所有前置空行
+	1,/^./{
+	/./!d
+	}
+
+	# 删除空行后的空行，只保留一个空行
+	:x
+	/./!{
+	N
+	s/^\n$//
+	tx
+	}
+
+这个脚本会删除所有的头尾空行，也是执行最快的。注意：所有循环都是通过n和b命令完成的，不依赖sed在行尾自动重启脚本。
+
+	#!/usr/bin/sed -nf
+
+	# delete all (leading) blanks
+	/./!d
+
+	# get here: so there is a non empty
+	:x
+	# print it
+	p
+	# get next
+	n
+	# got chars? print it again, etc...
+	/./bx
+
+	# no, don't have chars: got an empty line
+	:z
+	# get next, if last line we finish here so no trailing
+	# empty lines are written
+	n
+	# also empty? then ignore it, and get next... this will
+	# remove ALL empty lines
+	/./!bz
+
+	# all empty lines were deleted/ignored, but we have a non empty.  As
+	# what we want to do is to squeeze, insert a blank line artificially
+	i\
+
+	bx
+
+---
+
+Next: Extended Commands, Previous: Other Commands, Up: sed Programs
 
 ##5 GNU sed's Limitations and Non-limitations
 
