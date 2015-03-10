@@ -1196,6 +1196,43 @@ Next: cat -b, Previous: tac, Up: Examples
 
 Next: wc -c, Previous: cat -n, Up: Examples
 
+###4.8 Numbering Non-blank Lines
+
+模拟“cat -b”和“cat -n”类似，只需要选出需要进行编号的行。
+
+为了说明在sed脚本中适当注释的重要性，这一节中和上节中重复的部分没有注释。
+
+	#!/usr/bin/sed -nf
+
+	/^$/ {
+		p
+		b
+	}
+
+	# Same as cat -n from now
+	x
+	/^$/ s/^.*$/1/
+	G
+	h
+	s/^/      /
+	s/^ *\(......\)\n/\1  /p
+	x
+	s/\n.*$//
+	/^9*$/ s/^/0/
+	s/.9*$/x&/
+	h
+	s/^.*x//
+	y/0123456789/1234567890/
+	x
+	s/x.*$//
+	G
+	s/\n//
+	h
+
+---
+
+Next: wc -w, Previous: cat -b, Up: Examples
+
 ###4.9 Counting Characters
 
 下述脚本展示了另一种利用sed做算术运算的方法，在这种情况下可能需要做大数加法，如果还通过连续的自增实现的话就不够灵活了（可能会更复杂）。
@@ -1255,6 +1292,57 @@ Next: wc -c, Previous: cat -n, Up: Examples
 
 Next: wc -l, Previous: wc -c, Up: Examples
 
+###4.10 Counting Words
+
+在每个单词都被替换为字母“a”以后（上一节中每一个字母都被替换成“a”），本节脚本的剩余部分和上一节相同。
+
+有趣的是真实的wc程序为“wc -c”做过优化，所以单词计数比字母计数慢；但这个脚本的瓶颈是数学运算，因此单词计数要更快一些（它处理的数更小）。
+
+为了说明注释的重要性，这一节中和上节中重复的部分也没有注释。
+
+	#!/usr/bin/sed -nf
+	 
+	# Convert words to a's
+	s/[ tab][ tab]*/ /g
+	s/^/ /
+	s/ [^ ][^ ]*/a /g
+	s/ //g
+
+	# Append them to hold space
+	H
+	x
+	s/\n//
+
+	# From here on it is the same as in wc -c.
+	/aaaaaaaaaa/! bx;   s/aaaaaaaaaa/b/g
+	/bbbbbbbbbb/! bx;   s/bbbbbbbbbb/c/g
+	/cccccccccc/! bx;   s/cccccccccc/d/g
+	/dddddddddd/! bx;   s/dddddddddd/e/g
+	/eeeeeeeeee/! bx;   s/eeeeeeeeee/f/g
+	/ffffffffff/! bx;   s/ffffffffff/g/g
+	/gggggggggg/! bx;   s/gggggggggg/h/g
+	s/hhhhhhhhhh//g
+	:x
+	$! { h; b; }
+	:y
+	/a/! s/[b-h]*/&0/
+	s/aaaaaaaaa/9/
+	s/aaaaaaaa/8/
+	s/aaaaaaa/7/
+	s/aaaaaa/6/
+	s/aaaaa/5/
+	s/aaaa/4/
+	s/aaa/3/
+	s/aa/2/
+	s/a/1/
+	y/bcdefgh/abcdefg/
+	/[a-h]/ by
+	p
+
+---
+
+Next: head, Previous: wc -w, Up: Examples
+
 ###4.11 Counting Lines
 
 这次没有令人费解的实现了，因为sed内部提供了“wc -l”功能！
@@ -1264,6 +1352,17 @@ Next: wc -l, Previous: wc -c, Up: Examples
 ---
 
 Next: tail, Previous: wc -l, Up: Examples
+
+###4.12 Printing the First Lines
+
+这或许是最没有用的sed脚本：显示输入的前10行。行数在q命令之前。
+
+	#!/usr/bin/sed -f
+	10q
+
+---
+
+Next: uniq, Previous: head, Up: Examples
 
 ###4.13 Printing the Last Lines
 
