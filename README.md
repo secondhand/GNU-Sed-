@@ -2,9 +2,15 @@
 ---
 ##sed, a stream editor
 
-这份文档基于GNU sed 4.2.1版本。
+本文档基于GNU sed 4.2.1版本。
 
-版权&copy;1998,1999,2001,2003,2003,2004 Free Software Foundation, Inc.
+Copyright © 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+
+本文档遵循自由软件基金会发布的GNU Free Documentation License，1.1版本或（你所知道的）任何最新版本。
+
+你应该随着GNU sed收到一份GNU Free Documentation License的拷贝，即文件COPYING.DOC。如果没有，请写信到自由软件基金会，地址：59 Temple Place - Suite 330, Boston, MA 02110-1301, USA。
+
+There are no Cover Texts and no Invariant Sections; this text, along with its equivalent in the printed manual, constitutes the Title Page.
 
 ##1 介绍
 
