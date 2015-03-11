@@ -1400,6 +1400,36 @@ Next: uniq, Previous: head, Up: Examples
 
 Next:uniq -d, Previous: tail, Up: Examples
 
+###4.14 Make Duplicate Lines Unique
+
+本例展示了使用N、P、D命令的艺术，比较难以掌握。
+
+	#!/usr/bin/sed -f
+	h
+
+	:b
+	# On the last line, print and exit
+	$b
+	N
+	/^\(.*\)\n\1$/ {
+		# The two lines are identical. Undo the effect of
+		# the n command.
+		g
+		bb
+	}
+
+	# If the N command had added the last line, print and exit
+	$b
+
+	# The lines are different; print the first and go
+	# back working on the second.
+	P
+	D
+如你所见，通过P和D命令维护了一个两行的窗口，这个技术在高级sed脚本中经常使用。
+
+---
+
+Next: cat -s, Previous: uniq -d, Up: Examples
 
 ###4.15 Print Duplicated Lines of Input
 
@@ -1434,6 +1464,41 @@ Next:uniq -d, Previous: tail, Up: Examples
 ---
 
 Next: cat -s, Previous: uniq -d, Up: Examples
+
+###4.16 Remove All Duplicated Lines
+
+这个脚本只打印不重复的行，和“unique -u”类似。
+
+	#!/usr/bin/sed -f
+
+	# Search for a duplicate line --- until that, print what you find.
+	$b
+	N
+	/^\(.*\)\n\1$/ ! {
+		P
+		D
+	}
+
+	:c
+	# Got two equal lines in pattern space.  At the
+	# end of the file we simply exit
+	$d
+
+	# Else, we keep reading lines with N until we
+	# find a different one
+	s/.*\n//
+	N
+	/^\(.*\)\n\1$/ {
+		bc
+	}
+
+	# Remove the last instance of the duplicate line
+	# and go back to the top
+	D
+
+---
+
+Previous: uniq -u, Up: Examples
 
 ###4.17 Squeezing Blank Lines
 
